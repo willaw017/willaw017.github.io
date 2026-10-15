@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="仅本人可见的脱敏个人节奏与行动提示">
+  <meta name="theme-color" content="#f4eedf">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <title>见时</title>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#/today" aria-label="见时首页">
+        <span class="brand-name">见时</span>
+        <span class="brand-subtitle">个人节奏与行动参考</span>
+      </a>
+      <span class="privacy-mark">仅本人可见</span>
+    </header>
+    <p id="app-status" class="sr-only" aria-live="polite">正在读取个人摘要</p>
+    <main id="app" tabindex="-1">
+      <section class="loading-card" aria-busy="true">
+        <h1>正在展开今日纸页</h1>
+        <p>个人摘要正在从本机生成的静态资料中读取。</p>
+      </section>
+    </main>
+    <nav class="bottom-nav" aria-label="主要导航">
+      <a href="#/today" data-route="#/today">今日</a>
+      <a href="#/plan" data-route="#/plan">计划</a>
+      <a href="#/profile" data-route="#/profile">档案</a>
+    </nav>
+  </div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

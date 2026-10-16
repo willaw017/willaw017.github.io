@@ -29,7 +29,7 @@ export function renderUnlockPanel({ enabled = true, status = "locked", errorCode
     <div><p class="eyebrow">实时分析</p><h2>解锁实时分析</h2><p>同一设备 30 天内无需重复输入。</p></div>
     <label for="realtime-code">访问码</label>
     <input id="realtime-code" name="code" type="password" minlength="8" maxlength="128" autocomplete="current-password" required ${status === "verifying" ? "disabled" : ""}>
-    <button class="primary-button" type="submit" data-action="unlock-realtime" ${status === "verifying" ? "disabled" : ""}>${status === "verifying" ? "正在验证" : "解锁"}</button>
+    <button class="primary-button" type="submit" data-action="unlock-realtime" ${status === "verifying" ? "disabled" : ""}>${status === "verifying" ? "正在连接（最多 10 秒）" : "解锁"}</button>
     ${errorCode ? `<p class="field-error" role="alert">${e(errorCopy(errorCode))}</p>` : ""}
   </form>`;
 }

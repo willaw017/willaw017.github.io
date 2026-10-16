@@ -103,7 +103,7 @@ export async function parseResponseStream(response, { onDelta = () => {}, signal
   }
 }
 
-export function createRealtimeClient({ apiBase, fetchImpl = fetch, timeoutMs = 30000 }) {
+export function createRealtimeClient({ apiBase, fetchImpl = fetch, timeoutMs = 10000 }) {
   const base = normalizeBase(apiBase);
 
   async function requestJson(path, { method = "GET", token = null, body = null, signal = null } = {}) {
@@ -122,7 +122,12 @@ export function createRealtimeClient({ apiBase, fetchImpl = fetch, timeoutMs = 3
       return await response.json();
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      if (combined.signal.aborted) throw combined.signal.reason ?? new DOMException("Aborted", "AbortError");
+      if (combined.signal.aborted) {
+        if (combined.signal.reason?.name === "TimeoutError") {
+          throw new ApiError("NETWORK_ERROR", "连接实时服务超时");
+        }
+        throw combined.signal.reason ?? new DOMException("Aborted", "AbortError");
+      }
       throw new ApiError("NETWORK_ERROR", "无法连接实时服务");
     } finally {
       combined.cleanup();
@@ -156,7 +161,12 @@ export function createRealtimeClient({ apiBase, fetchImpl = fetch, timeoutMs = 3
         return await parseResponseStream(response, { onDelta, signal: combined.signal });
       } catch (error) {
         if (error instanceof ApiError) throw error;
-        if (combined.signal.aborted) throw combined.signal.reason ?? new DOMException("Aborted", "AbortError");
+        if (combined.signal.aborted) {
+          if (combined.signal.reason?.name === "TimeoutError") {
+            throw new ApiError("NETWORK_ERROR", "连接实时服务超时");
+          }
+          throw combined.signal.reason ?? new DOMException("Aborted", "AbortError");
+        }
         throw new ApiError("NETWORK_ERROR", "无法连接实时服务");
       } finally {
         combined.cleanup();

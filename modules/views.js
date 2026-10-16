@@ -1,3 +1,5 @@
+import { renderDailyRealtime, renderQuestionRealtime } from "./realtime-views.js";
+
 const TOPIC_ORDER = ["career", "relationships", "money", "support"];
 const CHART_ORDER = ["overview", "career", "money", "relationships"];
 
@@ -51,7 +53,7 @@ function staleBanner(summary, now) {
   </aside>`;
 }
 
-function renderToday(summary, now) {
+function renderToday(summary, now, realtime) {
   const today = summary.today;
   const domains = today.domains.map((domain) => `
     <article class="domain-card">
@@ -83,6 +85,10 @@ function renderToday(summary, now) {
       </div>
     </section>
 
+    <div data-realtime-slot="daily">
+      ${renderDailyRealtime(realtime)}
+    </div>
+
     <section class="section-block" aria-labelledby="actions-title">
       <div class="section-heading"><p class="eyebrow">今日取舍</p><h2 id="actions-title">先做什么，暂缓什么</h2></div>
       <div class="paired-grid">
@@ -113,13 +119,15 @@ function renderToday(summary, now) {
     </section>`;
 }
 
-function renderAsk(summary, selected, transient) {
+function renderAsk(summary, selected, transient, realtime) {
   const topic = summary.questions[selected];
   const chips = TOPIC_ORDER.map((key) => `
     <a class="topic-chip ${key === selected ? "is-selected" : ""}" href="#/ask/${key}" ${key === selected ? 'aria-current="page"' : ""}>${e(summary.questions[key].label)}</a>
   `).join("");
 
-  return `${pageHeader("问一件事", "把模糊问题收成一个行动", "先读已经核验的主题结论；自由输入仅保存在当前页面，不会上传。")}
+  const remaining = realtime?.usage?.remaining;
+  const canSubmit = realtime?.unlocked && remaining !== 0 && realtime?.answer?.status !== "streaming";
+  return `${pageHeader("问一件事", "把模糊问题收成一个行动", "先读已经核验的主题结论；实时提问只在生成时发送，不由本站云端保存。")}
     <nav class="topic-row" aria-label="问题主题">${chips}</nav>
     <article class="paper-card reading-card">
       <p class="eyebrow">预设问题</p>
@@ -131,15 +139,14 @@ function renderAsk(summary, selected, transient) {
       </details>
       <button class="text-action" type="button" data-action="favorite" data-key="ask-${e(selected)}">收藏这条结论</button>
     </article>
-    <section class="paper-card question-box" aria-labelledby="free-question-title">
+    <section class="paper-card question-box" aria-labelledby="free-question-title" data-realtime-slot="question">
       <div><p class="eyebrow">自由提问</p><h2 id="free-question-title">写下你真正卡住的地方</h2></div>
-      <label for="free-question">问题</label>
-      <textarea id="free-question" rows="4" placeholder="例如：我该先争取晋升，还是准备换一个平台？"></textarea>
-      <button class="primary-button" type="button" data-action="submit-free-question">查看分析</button>
-      <div class="prototype-note ${transient.freeQuestionOpen ? "is-open" : ""}" role="status">
-        <strong>第一版尚未接入实时分析</strong>
-        <p>你的输入没有被发送或保存。当前只展示已经由本地 skill 核验过的主题结论。</p>
-      </div>
+      <form data-realtime-form="question">
+        <label for="free-question">问题</label>
+        <textarea id="free-question" name="question" rows="4" maxlength="500" placeholder="例如：我该先争取晋升，还是准备换一个平台？" ${canSubmit ? "" : "disabled"} required>${e(realtime?.answer?.status === "streaming" ? realtime.answer.question : "")}</textarea>
+        <button class="primary-button" type="submit" data-action="submit-free-question" ${canSubmit ? "" : "disabled"}>查看分析</button>
+      </form>
+      ${renderQuestionRealtime(realtime)}
     </section>`;
 }
 
@@ -228,8 +235,8 @@ function renderProfile(summary, uiState, storageAvailable) {
     <section class="paper-card profile-status">
       <div class="status-line"><span class="status-dot" aria-hidden="true"></span><div><strong>个人资料已核验</strong><p>计算截至 ${e(summary.profileStatus.lastCalculated)}</p></div></div>
       <dl>
-        <div><dt>计算方式</dt><dd>本地 skill 生成的静态脱敏摘要</dd></div>
-        <div><dt>实时更新</dt><dd>第一版暂不重新计算</dd></div>
+        <div><dt>计算方式</dt><dd>本地 skill 生成脱敏证据，实时服务只负责解释</dd></div>
+        <div><dt>实时更新</dt><dd>访问码保护的今日解读与自由提问</dd></div>
         <div><dt>阶段资料有效期</dt><dd>${e(summary.meta.timelineValidThrough)}</dd></div>
         <div><dt>本机记录</dt><dd>${storageAvailable ? `已收藏 ${uiState.favorites.length} 条，已读 ${uiState.read.length} 条` : "浏览器已限制本机存储"}</dd></div>
       </dl>
@@ -251,16 +258,26 @@ export function renderError(message = "暂时无法读取个人摘要") {
   return `<section class="paper-card error-card" role="alert"><span class="error-mark">!</span><p class="eyebrow">读取失败</p><h1>${e(message)}</h1><p>基础导航仍可使用。请联网后重试，或稍后重新打开。</p><div class="button-row"><button class="primary-button" type="button" data-action="retry-data">重新读取</button><a class="secondary-button" href="#/today">返回今日</a></div></section>`;
 }
 
-export function renderRoute({ route, summary, uiState, now, storageAvailable = true, transient = {} }) {
+export function renderRoute({ route, summary, uiState, now, storageAvailable = true, transient = {}, realtime = {} }) {
   const safeTransient = { freeQuestionOpen: false, dateDemoOpen: false, ...transient };
+  const safeRealtime = {
+    enabled: false,
+    unlocked: false,
+    unlock: { status: "locked", errorCode: null },
+    daily: { status: "idle", text: "", errorCode: null },
+    usage: null,
+    answer: { status: "idle", topic: "", question: "", text: "", errorCode: null },
+    savedAnswers: [],
+    ...realtime
+  };
   switch (route.name) {
-    case "ask": return renderAsk(summary, route.param, safeTransient);
+    case "ask": return renderAsk(summary, route.param, safeTransient, safeRealtime);
     case "pick-date": return renderPickDate(summary, safeTransient);
     case "chart": return renderChart(summary, route.param, uiState);
     case "calendar": return renderCalendar(summary);
     case "plan": return renderPlan();
     case "profile": return renderProfile(summary, uiState, storageAvailable);
     case "today":
-    default: return renderToday(summary, now);
+    default: return renderToday(summary, now, safeRealtime);
   }
 }

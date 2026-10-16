@@ -1,11 +1,15 @@
-const CACHE_NAME = "PRIVATE_ALMANAC_V6";
+const CACHE_NAME = "PRIVATE_ALMANAC_V7";
 const CACHE_PREFIX = "PRIVATE_ALMANAC_";
 const PRECACHE = [
   "./",
   "./index.html",
   "./styles.css",
+  "./runtime-config.js",
   "./app.js",
+  "./modules/api.js",
   "./modules/data.js",
+  "./modules/realtime-state.js",
+  "./modules/realtime-views.js",
   "./modules/router.js",
   "./modules/state.js",
   "./modules/views.js",
@@ -14,21 +18,21 @@ const PRECACHE = [
   "./icons/icon.svg"
 ];
 
-self.addEventListener("install", (event) => {
+self.addEventListener("install", event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(PRECACHE))
+      .then(cache => cache.addAll(PRECACHE))
       .then(() => self.skipWaiting())
   );
 });
 
-self.addEventListener("activate", (event) => {
+self.addEventListener("activate", event => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(
+      .then(keys => Promise.all(
         keys
-          .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
+          .filter(key => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
+          .map(key => caches.delete(key))
       ))
       .then(() => self.clients.claim())
   );
@@ -41,7 +45,20 @@ async function offlineFirstVisit() {
   });
 }
 
-self.addEventListener("fetch", (event) => {
+async function runtimeConfigNetworkFirst(request, cache) {
+  try {
+    const response = await fetch(request, { cache: "no-store" });
+    if (response.ok) await cache.put(request, response.clone());
+    return response;
+  } catch {
+    return (await cache.match(request)) ?? new Response(
+      'globalThis.__JIANSHI_CONFIG__ = Object.freeze({\n  apiBase: ""\n});\n',
+      { headers: { "Content-Type": "text/javascript; charset=utf-8" } }
+    );
+  }
+}
+
+self.addEventListener("fetch", event => {
   const request = event.request;
   if (request.method !== "GET") return;
 
@@ -50,6 +67,9 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith((async () => {
     const cache = await caches.open(CACHE_NAME);
+    if (url.pathname.endsWith("/runtime-config.js")) {
+      return runtimeConfigNetworkFirst(request, cache);
+    }
     const cached = await cache.match(request, { ignoreSearch: true });
     if (cached) return cached;
 

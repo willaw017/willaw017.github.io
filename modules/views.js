@@ -18,12 +18,24 @@ function e(value) {
 }
 
 export function isDailyStale(dailyAsOf, now) {
-  const local = [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, "0"),
-    String(now.getDate()).padStart(2, "0")
-  ].join("-");
-  return local !== dailyAsOf;
+  return shanghaiCalendar(now).date !== dailyAsOf;
+}
+
+export function shanghaiCalendar(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "long"
+  }).formatToParts(now);
+  const value = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return {
+    date: `${value.year}-${value.month}-${value.day}`,
+    label: `${value.year}年${Number(value.month)}月${Number(value.day)}日`,
+    weekday: value.weekday,
+    day: String(Number(value.day))
+  };
 }
 
 function pageHeader(kicker, title, intro = "") {
@@ -55,6 +67,7 @@ function staleBanner(summary, now) {
 
 function renderToday(summary, now, realtime) {
   const today = summary.today;
+  const calendar = shanghaiCalendar(now);
   const domains = today.domains.map((domain) => `
     <article class="domain-card">
       <span>${e(domain.label)}</span>
@@ -62,26 +75,10 @@ function renderToday(summary, now, realtime) {
       <p>${e(domain.detail)}</p>
     </article>`).join("");
 
-  return `${staleBanner(summary, now)}
-    <section class="today-hero paper-card paper-card--hero">
+  return `<section class="today-hero paper-card paper-card--hero">
       <div class="today-date">
-        <p class="eyebrow">${e(today.solarDate)} · ${e(today.calendarLabel)}</p>
-        <p class="ganzhi">${e(today.ganzhiLabel)}</p>
-      </div>
-      <div class="today-verdict">
-        <div>
-          <span class="section-label">今日主轴</span>
-          <h1>${e(today.headline)}</h1>
-          <p>今天的静态结论来自已核验的本地个人盘，不是浏览器即时计算。</p>
-        </div>
-        <div class="score-seal score-seal--${e(today.tier)}" aria-label="综合倾向 ${e(today.tier)}，${e(today.score)} 分">
-          <strong>${e(today.tier)}</strong>
-          <span>${e(today.score)}</span>
-        </div>
-      </div>
-      <div class="confidence-line">
-        <span>计算置信度</span>
-        <span>${Math.round(Number(today.confidence) * 100)}%</span>
+        <p class="eyebrow">${e(calendar.label)} · ${e(calendar.weekday)}</p>
+        <p class="ganzhi">北京时间 · 每日零点换日</p>
       </div>
     </section>
 
@@ -89,22 +86,8 @@ function renderToday(summary, now, realtime) {
       ${renderDailyRealtime(realtime)}
     </div>
 
-    <section class="section-block" aria-labelledby="actions-title">
-      <div class="section-heading"><p class="eyebrow">今日取舍</p><h2 id="actions-title">先做什么，暂缓什么</h2></div>
-      <div class="paired-grid">
-        <article class="paper-card action-card action-card--focus">
-          <span class="section-label">传统宜 · 取其可用</span>
-          ${actionList(today.focus, "今日没有额外的宜项。")}
-        </article>
-        <article class="paper-card action-card action-card--avoid">
-          <span class="section-label">传统忌 · 保守处理</span>
-          ${actionList(today.avoid, "今日没有额外的避忌。")}
-        </article>
-      </div>
-    </section>
-
     <section class="section-block" aria-labelledby="domains-title">
-      <div class="section-heading"><p class="eyebrow">现实落点</p><h2 id="domains-title">今天最值得照看的两件事</h2></div>
+      <div class="section-heading"><p class="eyebrow">长期基线</p><h2 id="domains-title">每天都值得照看的两件事</h2></div>
       <div class="domain-grid">${domains}</div>
     </section>
 
@@ -264,7 +247,7 @@ export function renderRoute({ route, summary, uiState, now, storageAvailable = t
     enabled: false,
     unlocked: false,
     unlock: { status: "locked", errorCode: null },
-    daily: { status: "idle", text: "", errorCode: null },
+    daily: { status: "idle", message: "", title: "", body: "", phase: null, errorCode: null },
     usage: null,
     answer: { status: "idle", topic: "", question: "", text: "", errorCode: null },
     savedAnswers: [],

@@ -1,4 +1,4 @@
-const CACHE_NAME = "PRIVATE_ALMANAC_V8";
+const CACHE_NAME = "PRIVATE_ALMANAC_V12";
 const CACHE_PREFIX = "PRIVATE_ALMANAC_";
 const PRECACHE = [
   "./",
@@ -35,6 +35,8 @@ self.addEventListener("activate", event => {
           .map(key => caches.delete(key))
       ))
       .then(() => self.clients.claim())
+      .then(() => self.clients.matchAll({ type: "window" }))
+      .then(clients => Promise.all(clients.map(client => client.navigate(client.url))))
   );
 });
 
@@ -58,6 +60,16 @@ async function runtimeConfigNetworkFirst(request, cache) {
   }
 }
 
+async function navigationNetworkFirst(request, cache) {
+  try {
+    const response = await fetch(request, { cache: "no-store" });
+    if (response.ok) await cache.put("./index.html", response.clone());
+    return response;
+  } catch {
+    return (await cache.match("./index.html")) ?? offlineFirstVisit();
+  }
+}
+
 self.addEventListener("fetch", event => {
   const request = event.request;
   if (request.method !== "GET") return;
@@ -67,6 +79,9 @@ self.addEventListener("fetch", event => {
 
   event.respondWith((async () => {
     const cache = await caches.open(CACHE_NAME);
+    if (request.mode === "navigate") {
+      return navigationNetworkFirst(request, cache);
+    }
     if (url.pathname.endsWith("/runtime-config.js")) {
       return runtimeConfigNetworkFirst(request, cache);
     }
@@ -78,9 +93,6 @@ self.addEventListener("fetch", event => {
       if (response.ok) await cache.put(request, response.clone());
       return response;
     } catch {
-      if (request.mode === "navigate") {
-        return (await cache.match("./index.html")) ?? offlineFirstVisit();
-      }
       return new Response("离线状态下无法读取此资源", { status: 503 });
     }
   })());

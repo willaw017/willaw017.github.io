@@ -711,6 +711,60 @@ textarea { resize: vertical; }
   border-top-color: var(--vermilion);
 }
 
+.daily-paper {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.daily-phase {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  background: var(--paper-light);
+  font-size: 12px;
+  text-align: center;
+}
+
+.daily-message {
+  padding: 24px 20px 27px;
+}
+
+.daily-message blockquote {
+  margin: 12px 0 0;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: clamp(22px, 6.5vw, 29px);
+  font-weight: 650;
+  line-height: 1.58;
+  letter-spacing: -0.03em;
+}
+
+.daily-reading {
+  padding: 20px;
+  border-top: 2px solid var(--tea);
+}
+
+.daily-reading h2 {
+  margin: 0 0 12px;
+  font-family: var(--serif);
+  font-size: 22px;
+}
+
+.daily-reading-copy p {
+  margin: 0 0 12px;
+  color: var(--ink-soft);
+  line-height: 1.82;
+}
+
+.daily-reading-copy p:last-child {
+  margin-bottom: 0;
+}
+
 .realtime-panel h2,
 .unlock-sheet h2,
 .answer-sheet h2 {

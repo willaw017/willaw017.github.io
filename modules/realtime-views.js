@@ -21,6 +21,15 @@ function errorCopy(code) {
   return ERROR_COPY[code] ?? "实时服务暂不可用，静态内容仍可阅读。";
 }
 
+function paragraphs(value) {
+  return String(value ?? "")
+    .split(/\n\s*\n/)
+    .map(part => part.trim())
+    .filter(Boolean)
+    .map(part => `<p>${e(part)}</p>`)
+    .join("");
+}
+
 export function renderUnlockPanel({ enabled = true, status = "locked", errorCode = null } = {}) {
   if (!enabled) {
     return `<aside class="realtime-error" role="status"><strong>实时分析尚未启用</strong><p>静态内容仍可正常阅读。</p></aside>`;
@@ -35,16 +44,23 @@ export function renderUnlockPanel({ enabled = true, status = "locked", errorCode
 }
 
 export function renderDailyRealtime({ enabled = true, unlocked = false, unlock = {}, daily = {} } = {}) {
+  if (daily.status === "complete") {
+    return `<section class="daily-paper" aria-label="今日寄语">
+      <p class="daily-phase">${e(daily.phase?.display)}</p>
+      <article class="daily-message paper-card">
+        <p class="eyebrow">今天想对你说</p>
+        <blockquote>${e(daily.message)}</blockquote>
+      </article>
+      <article class="daily-reading paper-card">
+        <h2>${e(daily.title)}</h2>
+        <div class="daily-reading-copy">${paragraphs(daily.body)}</div>
+        <p class="usage-line">生成于 ${e(daily.generatedAtLabel)}${daily.cached ? " · 已读取今日纸页" : " · 今日已更新"}</p>
+      </article>
+    </section>`;
+  }
   if (!unlocked) return `<section class="realtime-panel paper-card" aria-label="今日实时分析">${renderUnlockPanel({ enabled, ...unlock })}</section>`;
   if (daily.status === "loading") {
-    return `<section class="realtime-panel paper-card" aria-busy="true"><div class="ink-loader" aria-hidden="true"></div><p class="eyebrow">今日实时</p><h2>正在推演</h2><p>静态摘要已经可以阅读，实时解读稍后展开。</p></section>`;
-  }
-  if (daily.status === "complete") {
-    return `<section class="realtime-panel paper-card realtime-panel--complete">
-      <div class="realtime-heading"><div><p class="eyebrow">今日实时</p><h2>今日已更新</h2></div><span class="seal-mini">时</span></div>
-      <p class="streaming-answer">${e(daily.text)}</p>
-      <p class="usage-line">生成于 ${e(daily.generatedAtLabel)}${daily.cached ? " · 已读取今日缓存" : " · 本次生成"}${daily.degraded ? " · 已降级说明" : ""}</p>
-    </section>`;
+    return `<section class="realtime-panel paper-card" aria-busy="true"><div class="ink-loader" aria-hidden="true"></div><p class="eyebrow">今日实时</p><h2>正在读取今天</h2><p>正在结合北京时间当天日期与个人基线生成解读。</p></section>`;
   }
   if (daily.status === "error") {
     return `<section class="realtime-panel paper-card"><aside class="realtime-error" role="status"><strong>${e(errorCopy(daily.errorCode))}</strong><p>上方静态结论不受影响。</p></aside><button class="secondary-button" type="button" data-action="retry-daily">重新尝试</button></section>`;

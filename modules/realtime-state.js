@@ -23,6 +23,25 @@ function cleanUsage(value) {
   return { limit, used, remaining, resetsAt: value.resetsAt };
 }
 
+function cleanDaily(value) {
+  if (!value || typeof value !== "object") return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value.date ?? ""))) return null;
+  if (![value.message, value.title, value.body].every(item => typeof item === "string" && item.trim())) {
+    return null;
+  }
+  if (typeof value.phase?.display !== "string" || !value.phase.display.trim()) return null;
+  if (typeof value.generatedAt !== "string" || !Number.isFinite(Date.parse(value.generatedAt))) return null;
+  return {
+    date: value.date,
+    message: value.message,
+    title: value.title,
+    body: value.body,
+    phase: { ...value.phase },
+    generatedAt: value.generatedAt,
+    degraded: Boolean(value.degraded)
+  };
+}
+
 function cleanSaved(values) {
   if (!Array.isArray(values)) return [];
   return values.filter(item => item && typeof item.id === "string"
@@ -39,7 +58,7 @@ function cleanSaved(values) {
 
 export function createRealtimeState(storage = null, now = () => Date.now()) {
   let available = false;
-  let persistent = { session: null, usage: null, savedAnswers: [] };
+  let persistent = { session: null, usage: null, daily: null, savedAnswers: [] };
   let answer = { ...EMPTY_ANSWER };
 
   try {
@@ -49,6 +68,7 @@ export function createRealtimeState(storage = null, now = () => Date.now()) {
       persistent = {
         session: cleanSession(parsed.session, now),
         usage: cleanUsage(parsed.usage),
+        daily: cleanDaily(parsed.daily),
         savedAnswers: cleanSaved(parsed.savedAnswers)
       };
       storage.setItem(STORAGE_KEY, JSON.stringify(persistent));
@@ -76,6 +96,7 @@ export function createRealtimeState(storage = null, now = () => Date.now()) {
     return {
       session,
       usage: cleanUsage(persistent.usage),
+      daily: cleanDaily(persistent.daily),
       answer: { ...answer },
       savedAnswers: cleanSaved(persistent.savedAnswers)
     };
@@ -98,6 +119,17 @@ export function createRealtimeState(storage = null, now = () => Date.now()) {
     },
     setUsage(usage) {
       persistent.usage = cleanUsage(usage);
+      save();
+      return read();
+    },
+    setDaily(daily) {
+      persistent.daily = cleanDaily(daily);
+      if (!persistent.daily) throw new Error("invalid daily reading");
+      save();
+      return read();
+    },
+    clearDaily() {
+      persistent.daily = null;
       save();
       return read();
     },
@@ -151,7 +183,7 @@ export function createRealtimeState(storage = null, now = () => Date.now()) {
       return read();
     },
     clearAll() {
-      persistent = { session: null, usage: null, savedAnswers: [] };
+      persistent = { session: null, usage: null, daily: null, savedAnswers: [] };
       answer = { ...EMPTY_ANSWER };
       if (available) {
         try { storage.removeItem(STORAGE_KEY); } catch { available = false; }
